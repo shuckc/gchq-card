@@ -61,25 +61,25 @@ def candidates_clue(clue, puzzle):
 		# completely determined, return single solution
 		ans = ' '.join(['#'*s for s in clue])
 		assert len(ans) == len(puzzle)
-		print 'completely determined clue %s puzzle %s as %s' % (clue, puzzle, ans)
+		# print 'completely determined clue %s puzzle %s as %s' % (clue, puzzle, ans)
 		return [ans]
 	part = list(partitions(free_spaces))
-	print 'clue ' + str(clue) + ' puzzle ' + puzzle + ' free spaces: ' + str(free_spaces) + ", partitions: " + str(part)
+	#print 'clue ' + str(clue) + ' puzzle ' + puzzle + ' free spaces: ' + str(free_spaces) + ", partitions: " + str(part)
 	xs = []
 	for p in part:
 		if len(p) > len(clue)+1:
-			print ' skipping ' + str(p)
+			#print ' skipping ' + str(p)
 			continue
 		if len(p) <= len(clue):
 			p = p + [0]*(len(clue) - len(p) + 1)
-		print ' partition candidates: ' + str(p)
+		#print ' partition candidates: ' + str(p)
 		seen = set()
 		for x in itertools.permutations(p):
 			if not x in seen:
 				c = ' '*x[0] + ' '.join(['#'*c + ' '*s for c, s in zip(clue, x[1:]) ])
 				# does c violate puzzle knowns?
+				#print '  free_space arrangement ' + str(x) + ' gives ' + c
 				if all( b == '.' or a == b for a,b in zip(c, puzzle)):
-					print '  free_space arrangement ' + str(x) + ' gives ' + c
 					xs.append(c)
 				seen.add(x)
 	return list(set(xs))
@@ -126,21 +126,38 @@ while unsolved:
 	rc, n, clue, statefn, updatefn = unsolved.pop(0)
 	h += 1
 	state = statefn(p, n)
-	print 'clue ' + str(clue) + ' state ' + str(state)
+	print 'Clue ' + str(clue) + ' state ' + str(state)
 	c = candidates(clue, state)
 	if len(c) == 1:
 		updatefn(p, n, c[0])
-		print 'did %s %d - puzzle now' % (rc, n)
+		print 'Solved %s %d - puzzle now' % (rc, n)
 		print(p)
-		#if n != 6 and n != 21 and n != 2:
-		#	exit()
 		h = 0
 	elif len(c) == 0:
 		raise Exception("Unsatisfied " + str(clue) + " " + str(state))
 	else:
-		print '%d solutions remain for %s %d' % (len(c), rc, n)
+		print '  %d solutions remain for %s %d, checking common values' % (len(c), rc, n)
+		infers = 0
+		state_next = list(state)
+		for i in range(len(state)):
+			if state[i] == '.':
+				v = set([ci[i] for ci in c])
+				if len(v) == 1:
+					state_next[i] = c[0][i]
+					infers += 1
+		if infers > 1:
+			updatefn(p, n, ''.join(state_next))
+			print ' Did partial solve in %d positions for %s %d - puzzle now' % (infers, rc, n)
+			print '   from clue ' + str(clue) + ' state ' + state + " -> " + ''.join(state_next)
+			print(p)
+			h = 0
+		else:
+			for ci in c:
+				print '      ' + ci
+			print '   >> ' + state
 		unsolved.append( (rc, n, clue, statefn, updatefn) )
-	if h > 50:
+	if h > 52:
 		raise Exception('No iterative progress')
 
+print '\n *** Solved ***'
 print(p)
