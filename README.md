@@ -40,3 +40,6 @@ It eventually prints:
         #     #  ##      # # ##
         ####### ##   # ##   #####
 
+
+From:
+![Puzzle source](/puzzle_colorcorrected.jpeg)
