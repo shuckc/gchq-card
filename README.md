@@ -43,3 +43,19 @@ It eventually prints:
 
 From:
 ![Puzzle source](/puzzle_colorcorrected.jpeg)
+
+
+score_optim adds a few optimisations to the solver but is more complex.
+
+
+    chris ~/repos/gchq-card $ time python score.py > /dev/null
+
+    real	0m20.386s
+    user	0m20.403s
+    sys	0m0.013s
+    chris ~/repos/gchq-card $ time python score_optim.py > /dev/null
+
+    real	0m8.229s
+    user	0m8.231s
+    sys	0m0.010s
+

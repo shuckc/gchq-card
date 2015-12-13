@@ -4,7 +4,7 @@ class Puzzle(object):
 	puzz = []
 	rows = []
 	def read(self, fn = 'human.txt'):
-		with open('human.txt') as f:
+		with open(fn) as f:
 			cs = []
 			for n,l in enumerate(f.readlines()):
 				if n < 9:
@@ -101,7 +101,7 @@ chk(candidates([2,1], '....'), ['## #'])
 chk(candidates([1, 3, 1, 3, 10, 2], '# ### # .##....#....##...'), ['# ### # ### ########## ##'])
 
 p = Puzzle()
-p.read()
+p.read(fn='input.txt')
 
 def getRowPuzzle(p, n):
 	return p.puzz[n]
@@ -151,10 +151,6 @@ while unsolved:
 			print '   from clue ' + str(clue) + ' state ' + state + " -> " + ''.join(state_next)
 			print(p)
 			h = 0
-		else:
-			for ci in c:
-				print '      ' + ci
-			print '   >> ' + state
 		unsolved.append( (rc, n, clue, statefn, updatefn) )
 	if h > 52:
 		raise Exception('No iterative progress')
