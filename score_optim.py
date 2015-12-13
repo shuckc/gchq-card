@@ -1,9 +1,9 @@
 import itertools
 
 class Puzzle(object):
-	puzz = []
 	rows = []
 	def read(self, fn = 'human.txt'):
+		puzz = []
 		with open(fn) as f:
 			cs = []
 			for n,l in enumerate(f.readlines()):
@@ -15,28 +15,15 @@ class Puzzle(object):
 					#  '.'' unknown   ' ' known blank, '#' known filled
 					print "%50s >%25s<" % (str(r), p)
 					assert all([x in ' .#' for x in p])
-					self.puzz.append(p)
+					puzz.append(p)
 					self.rows.append(r)
 			self.cols = [ [int(x) for x in y if x != ' '] for y in zip(*cs)]
 			print 'rows: %s' % self.rows
 			print 'cols: %s' % self.cols
+		self.pr = list(''.join(puzz))
 	def __str__(self):
-		return '\n'.join(x for x in p.puzz)
+		return '\n'.join([''.join(p.pr[25*n:25*(n+1)]) for n in range(25)])
 
-# generate candidates working from the clue first, by working out how many "free" spaces
-# we have and the places they can go, e.g.
-#  [3,1] onto .....  calculates ###a# with a being drawn from [(" ")]
-#                               ### #      a   "   []
-#
-#  [3,1] onto ......            a###b#c with a,b,c drawn from [("", " ", " "), ("", "  ", ""), (" ", " ", "")]
-#                              which simplies to
-#                               a### b#c with a,b,c drawn from [(" ", "", ""), ("", " ", ""), ("", "", " ")]
-#   [3,1] onto '......' is 3+1+1=5, so 1 'free' space, which can go before 3, after 3 or after the 1
-#    ie, after block 0 or 1
-#      The "n" free spaces are arranged into the integer partitions of n, restricted to having fewer items in
-#      the partition than we have gaps. Any fewer items in the partition are made up with zeros, then use
-#		combinations function to provide all the combinations
-#
 def partitions(n):
 	# base case of recursion: zero is the sum of the empty list
 	if n == 0:
@@ -53,8 +40,25 @@ def chk(got, expected):
 		print("Failed, \n  expected: %s\n  got:      %s" % (expected, got))
 		raise Exception("failed")
 
+# pre-calculating the integer partitions saved a few tens of ms :-/
 precalc_part = [list(partitions(n)) for n in range(20)]
 
+# generate candidates working from the clue first, by working out how many "free" spaces
+# we have and the places they can go, e.g.
+#
+#  [3,1] onto '.....'' (len=5)  is '### #' with fs=0, so no arrangements tried
+#
+#  [3,1] onto '......' (len=6) is '### #', fs=1, places_for_spaces=3 (marked abc, are 'a### b#c')
+#			 with a,b,c drawn from [("", "", " "), ("", " ", ""), (" ", "", "")]
+#
+#  [3,1] onto '.......' is '### #', fs=2, places_for_spaces=3, which are again 'a### b#c'
+#          with a,b,c drawn from: i) partition [2,0,0],  perm: [(2,0,0), (0,2,0), (0,0,2)]
+#                                ii) partition [1,1,0],  perm: [(1,1,0), (1,0,1), (0,1,1)]
+#
+#  The "n" free spaces are arranged into the integer partitions of n, restricted to having fewer items in
+#  the partition than places_for_spaces. Any fewer items in the partition are made up with zeros, then use
+#  combinations function to provide all the combinations
+#
 def candidates(clue, puzzle):
 	# how many free spaces?
 	free_spaces = len(puzzle) - sum(clue) - (len(clue)-1)
@@ -126,7 +130,6 @@ def truncate(clue, puzzle):
 				clue = clue[:-1]
 		suffix = puzzle[-1] + suffix
 		puzzle = puzzle[:-1]
-	print prefix, clue, puzzle, suffix
 	return prefix, clue, puzzle, suffix
 
 assert truncate([1, 3, 1, 3, 10, 2],   '# ### # .##....#....##...') == ('# ### #', [3,10,2], ' .##....#....##...', '')
@@ -139,16 +142,19 @@ p = Puzzle()
 p.read('input.txt')
 
 def getRowPuzzle(p, n):
-	return p.puzz[n]
+	return ''.join(p.pr[25*n:25*(n+1)])
 def getColPuzzle(p, n):
-	return ''.join(zip(*p.puzz)[n])
+	return ''.join(p.pr[n:25*25+n:25])
 def putRowPuzzle(p, n, sol):
-	p.puzz[n] = sol
+	p.pr[25*n:25*(n+1)] = list(sol)
 def putColPuzzle(p, n, sol):
-	trans = map(''.join, zip(*p.puzz))
-	trans[n] = sol
-	p.puzz =  map(''.join, zip(*trans))
+	p.pr[n:25*25+n:25] = list(sol)
 
+assert len(getRowPuzzle(p,0)) == 25
+assert len(getColPuzzle(p,0)) == 25
+
+# Sorting the search space to begin with those rows and columns with the
+# least free_spaces gave about 20% speedup due to quickly reducing unknowns.
 def free_spaces(clue, puzzle):
 	return len(puzzle) - sum(clue) - (len(clue)-1)
 
@@ -166,7 +172,7 @@ while unsolved:
 	h += 1
 	state = statefn(p, n)
 	if not '.' in state: continue
-	print 'Clue %60s state %s' % (str(clue), state)
+	print 'Clue %s%d is %s state %s' % (rc, n, str(clue), state)
 
 	prefix, clue_mid, puzzle_mid, suffix = truncate(list(clue), state)
 
@@ -175,17 +181,13 @@ while unsolved:
 	for c in candidates(clue_mid, puzzle_mid):
 		# track the possible values for each position in state
 		[x.add(y) for x,y in zip(char_sets, c)]
-	infers = 0
 	for i, (cs, s) in enumerate(zip(char_sets, puzzle_mid)):
 		if len(cs) == 1:
-			c = cs.pop()
-			if s == '.':
-				state_next[i] = c
-				infers += 1
+			state_next[i] = cs.pop()
 	s = prefix + ''.join(state_next) + suffix
 	if s != state:
 		updatefn(p, n, s)
-		print ' Did partial solve in %d positions for %s %d - puzzle now' % (infers, rc, n)
+		print ' Did partial solve for %s%d' % (rc, n)
 		print '   from clue ' + str(clue) + ' state ' + state + " -> " + s
 		print(p)
 		h = 0
